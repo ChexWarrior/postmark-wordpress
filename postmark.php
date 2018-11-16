@@ -7,6 +7,9 @@ Version: 1.10.4
 Author: Andrew Yates & Matt Gibbs
 */
 
+// For wp-cli commands.
+include( plugin_dir_path( __FILE__ ) . 'pm-cli.php');
+
 class Postmark_Mail
 {
     public $settings;
