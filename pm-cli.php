@@ -160,41 +160,17 @@ $getdeliverystats = function() use ($postmark_settings) {
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting delivery stats', $count );
 
-  $progress->tick();
-
-  if(isset($postmark_settings["api_key"])) {
-    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
   }
-
-  $progress->tick();
 
   $url = "https://api.postmarkapp.com/deliverystats";
 
-  $progress->tick();
-
   // Retrieves delivery stats
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings);
 
-  // If all goes well, display the retrieved delivery stats using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning('Delivery stats retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Delivery stats retrieval failed.');
-  }
+  postmark_handle_response($response, $progress);
+
 };
 
 # Registers a custom WP-CLI command for retrieving bounces.
@@ -284,17 +260,9 @@ $getbounces = function($assoc_args) use ($postmark_settings) {
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
 
-  $progress->tick();
-
-  if(isset($postmark_settings["api_key"])) {
-    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+  if ( !check_server_token_is_set($postmark_settings ) ) {
+    return;
   }
-
   // Checks for a count parameter and uses it if set.
   if ( isset($assoc_args['count']) && is_int($assoc_args['count']) && $assoc_args['count'] < 501 && $assoc_args['count'] > 0) {
     $count = $assoc_args['count'];
@@ -352,8 +320,6 @@ $getbounces = function($assoc_args) use ($postmark_settings) {
     $todate = $assoc_args['todate'];
   }
 
-  $progress->tick();
-
   $url = "https://api.postmarkapp.com/bounces";
 
   if(isset($count)) {
@@ -396,26 +362,11 @@ $getbounces = function($assoc_args) use ($postmark_settings) {
     $url .= "&todate=" . $todate;
   }
 
-  $progress->tick();
-
   // Retrieve bounces
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings);
 
-  // If all goes well, display the retrieved bounces using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning('Bounce retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Bounce retrieval failed.');
-  }
+  postmark_handle_response($response, $progress);
+
 };
 
 /**
@@ -431,15 +382,8 @@ $getbounce = function ($args) use ($postmark_settings) {
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
 
-  $progress->tick();
-
-  if(isset($postmark_settings["api_key"])) {
-    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+  if ( !check_server_token_is_set($postmark_settings ) ) {
+    return;
   }
 
   // Makes sure bounce id provided in command.
@@ -450,32 +394,11 @@ $getbounce = function ($args) use ($postmark_settings) {
     WP_CLI::error('Specify a bounce id.');
   }
 
-  $progress->tick();
-
   // Retrieve the bounce
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  $response = postmark_api_call( 'get', $url, null, null, $postmark_settings );
 
-  // If all goes well, display the retrieved bounce using the CLI.
+  postmark_handle_response( $response, $progress );
 
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning('Bounce retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Bounce retrieval failed.');
-  }
 };
 
 /**
@@ -492,15 +415,8 @@ $getbouncedump = function ($args) use ($postmark_settings) {
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
 
-  $progress->tick();
-
-  if(isset($postmark_settings["api_key"])) {
-    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+  if ( !check_server_token_is_set($postmark_settings ) ) {
+    return;
   }
 
   // Makes sure bounce id provided in command.
@@ -511,32 +427,11 @@ $getbouncedump = function ($args) use ($postmark_settings) {
     WP_CLI::error('Specify a bounce id.');
   }
 
-  $progress->tick();
-
   // Retrieve the bounce dump
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  $response = postmark_api_call( 'get', $url, null, null, $postmark_settings );
 
-  // If all goes well, display the retrieved bounce dump using the CLI.
+  postmark_handle_response( $response, $progress );
 
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning('Bounce dump retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Bounce dump retrieval failed.');
-  }
 };
 
 /**
@@ -554,14 +449,8 @@ $activatebounce = function ($args) use ($postmark_settings) {
 
   $progress->tick();
 
-  if(isset($postmark_settings["api_key"])) {
-    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
-    $headers['Accept'] = 'application/json';
-    $headers['Content-Type'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+  if ( !check_server_token_is_set($postmark_settings ) ) {
+    return;
   }
 
   // Makes sure bounce id provided in command.
@@ -572,41 +461,11 @@ $activatebounce = function ($args) use ($postmark_settings) {
     WP_CLI::error('Specify a bounce id to reactivate.');
   }
 
-  $progress->tick();
+  // Activates the bounce - needs to include an empty body.
+  $response = postmark_api_call('put', $url, ' ', null, $postmark_settings );
 
-  $options = array(
-        'method'     => 'PUT',
+  postmark_handle_response( $response, $progress );
 
-        // Must include a body for this API call.
-        'body'       => ' ',
-
-        'headers'    => $headers
-        );
-
-  $response = wp_remote_request( $url, $options );
-
-  $progress->tick();
-
-  // If all goes well, display the retrieved bounce dump using the CLI.
-
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning('Bounce activation failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::error('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Bounce activation failed.');
-  }
 };
 
 /**
@@ -619,48 +478,19 @@ $activatebounce = function ($args) use ($postmark_settings) {
 $getbouncedtags = function ($args) use ($postmark_settings) {
 
   // ticker
-  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounced tags', $count );
 
-  $progress->tick();
-
-  if(isset($postmark_settings["api_key"])) {
-    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+  if ( !check_server_token_is_set($postmark_settings ) ) {
+    return;
   }
-
 
   $url = "https://api.postmarkapp.com/bounces/tags";
 
-  $progress->tick();
+  // Retrieves the bounced tags.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
 
-  // Retrieve the bounce
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  // If all goes well, display the retrieved bounce using the CLI.
-
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning('Bounced tags retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Bounced tags retrieval failed.');
-  }
 };
 
 /**********************************************
@@ -711,46 +541,18 @@ $getbouncedtags = function ($args) use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$getserver = function($args, $assoc_args) {
-
-  $url = "https://api.postmarkapp.com/servers/{$args[1]}";
+$getserver = function( $args, $assoc_args ) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Getting Server ID {$args[1]}", $count );
 
-  $progress->tick();
-
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
-
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/servers/{$args[1]}";
 
   // Retrieves server details.
-  $response = wp_remote_get($url, array( 'headers' => $headers));
+  $response = postmark_api_call('get', $url, null, $args[0], null);
 
-  $progress->tick();
+  postmark_handle_response($response, $progress);
 
-  // If all goes well, display the retrieved server using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-
-    $progress->finish();
-
-    $response['body'] = json_decode($response['body']);
-
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } elseif ( is_array( $response ) && false == (wp_remote_retrieve_response_code( $response ) == 200 )) {
-
-    $progress->finish();
-
-    WP_CLI::warning('Server retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Server retrieval failed.');
-  }
 };
 
 # Registers a custom WP-CLI command for creating
@@ -799,8 +601,7 @@ $getserver = function($args, $assoc_args) {
  * : Color of the server in the rack screen. Purple Blue Turqoise Green Red
  * Yellow Grey Orange
  *
- * TODO: Check if you can just pass in as a flag without a value for true/false.
- * [--smtpapiactivated=<smtpapiactivated>]
+ * [--smtpapiactivated]
  * : Specifies whether or not SMTP is enabled on this server.
  *
  * [--rawemailenabled]
@@ -853,18 +654,10 @@ $getserver = function($args, $assoc_args) {
  */
 $createserver = function( $args, $assoc_args) {
 
-  $url = "https://api.postmarkapp.com/servers";
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Creating new server -  {$args[1]}", $count );
 
-  $progress->tick();
-
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
-  $headers['Content-Type'] = 'application/json';
-
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/servers";
 
   $new_server = array("Name" => "{$args[1]}");
 
@@ -919,8 +712,6 @@ $createserver = function( $args, $assoc_args) {
   if( isset( $assoc_args['enablesmtpapierrorhooks'] ) ) {
     $new_server['EnableSmtpApiErrorHooks'] = "true";
   }
-
-  var_dump($assoc_args);
 
   // Uses server color if present.
   if ( isset( $assoc_args['servercolor'] ) ) {
@@ -985,41 +776,11 @@ $createserver = function( $args, $assoc_args) {
     }
   }
 
-  $options = array(
-    'method' => 'POST',
-    'blocking' => true,
-    'headers' => $headers,
-    'body' => json_encode( $new_server )
-  );
-
-  var_dump($options);
-
   // Creates new server.
-  $response = wp_remote_post($url, $options);
+  $response = postmark_api_call('post', $url, json_encode( $new_server ), $args[0], null);
 
-  $progress->tick();
+  postmark_handle_response($response, $progress);
 
-  // If all goes well, display the new server's details using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-
-    $progress->finish();
-
-    $response['body'] = json_decode($response['body']);
-
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } elseif ( is_array( $response ) && false == (wp_remote_retrieve_response_code( $response ) == 200 )) {
-
-    $progress->finish();
-
-    WP_CLI::warning('Server creation failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Server creation failed.');
-  }
 };
 
 # Registers a custom WP-CLI command for editing
@@ -1027,7 +788,7 @@ $createserver = function( $args, $assoc_args) {
 #
 # Example usage:
 #
-# $ wp postmarkcreateserver <account api token> <serverid>
+# $ wp postmarkeditserver <account api token> <serverid>
 #
 # Success: {
 #  "ID": 1,
@@ -1074,7 +835,7 @@ $createserver = function( $args, $assoc_args) {
  * [--smtpapiactivated=<smtpapiactivated>]
  * : Specifies whether or not SMTP is enabled on this server.
  *
- * [--rawemailenabled]
+ * [--rawemailenabled=<rawemailenabled>]
  * : When enabled, the raw email content will be included with inbound webhook
  * payloads under the RawEmail key.
  *
@@ -1087,18 +848,18 @@ $createserver = function( $args, $assoc_args) {
  * [--bouncehookurl=<bouncehookurl>]
  * : URL to POST to every time a bounce event occurs.
  *
- * [--includebouncecontentinhook]
+ * [--includebouncecontentinhook=<includebouncecontentinhook>]
  * : Include bounce content in webhook.
  *
  * [--openhookurl=<openhookurl>]
  * : URL to POST to every time an open event occurs.
  *
- * [--postfirstopenonly]
+ * [--postfirstopenonly=<postfirstopenonly>]
  * : If set to true, only the first open by a particular recipient will initiate
  * the open webhook. Any subsequent opens of the same email by the same
  * recipient will not initiate the webhook.
  *
- * [--trackopens]
+ * [--trackopens=<trackopens>]
  * : Indicates if all emails being sent through this server have open tracking
  * enabled.
  *
@@ -1116,7 +877,7 @@ $createserver = function( $args, $assoc_args) {
  * [--inboundspamthreshold=<inboundspamthreshold>]
  * : The maximum spam score for an inbound message before it's blocked.
  *
- * [--enablesmtpapierrorhooks]
+ * [--enablesmtpapierrorhooks=<enablesmtpapierrorhooks>]
  * : Specifies whether or not SMTP API Errors will be included with bounce
  * webhooks.
  *
@@ -1124,18 +885,10 @@ $createserver = function( $args, $assoc_args) {
  */
 $editserver = function( $args, $assoc_args) {
 
-  $url = "https://api.postmarkapp.com/servers/{$args[1]}";
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Editing server ID {$args[1]}", $count );
 
-  $progress->tick();
-
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
-  $headers['Content-Type'] = 'application/json';
-
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/servers/{$args[1]}";
 
   $server_edits = array();
 
@@ -1144,11 +897,11 @@ $editserver = function( $args, $assoc_args) {
   }
 
   if( isset( $assoc_args['smtpapiactivated'] ) ) {
-    $server_edits['SmtpApiActivated'] = "true";
+    $server_edits['SmtpApiActivated'] = $assoc_args['smtpapiactivated'];
   }
 
   if( isset( $assoc_args['rawemailenabled'] ) ) {
-    $server_edits['RawEmailEnabled'] = "true";
+    $server_edits['RawEmailEnabled'] = $assoc_args['rawemailenabled'];
   }
 
   if( isset( $assoc_args['deliveryhookurl'] ) ) {
@@ -1164,7 +917,7 @@ $editserver = function( $args, $assoc_args) {
   }
 
   if( isset( $assoc_args['includebouncecontentinhook'] ) ) {
-    $server_edits['IncludeBounceContentInHook'] = "true";
+    $server_edits['IncludeBounceContentInHook'] = $assoc_args['includebouncecontentinhook'];
   }
 
   if( isset( $assoc_args['openhookurl'] ) ) {
@@ -1172,11 +925,11 @@ $editserver = function( $args, $assoc_args) {
   }
 
   if( isset( $assoc_args['postfirstopenonly'] ) ) {
-    $server_edits['PostFirstOpenOnly'] = "true";
+    $server_edits['PostFirstOpenOnly'] = $assoc_args['postfirstopenonly'];
   }
 
   if( isset( $assoc_args['trackopens'] ) ) {
-    $server_edits['TrackOpens'] = "true";
+    $server_edits['TrackOpens'] = $assoc_args['trackopens'];
   }
 
   if( isset( $assoc_args['clickhookurl'] ) ) {
@@ -1192,7 +945,7 @@ $editserver = function( $args, $assoc_args) {
   }
 
   if( isset( $assoc_args['enablesmtpapierrorhooks'] ) ) {
-    $server_edits['EnableSmtpApiErrorHooks'] = "true";
+    $server_edits['EnableSmtpApiErrorHooks'] = $assoc_args['enablesmtpapierrorhooks'];
   }
 
   // Uses server color if present.
@@ -1263,40 +1016,129 @@ $editserver = function( $args, $assoc_args) {
     }
   }
 
-  $options = array(
-    'method' => 'PUT',
-    'headers' => $headers,
-    'body' => json_encode( $server_edits )
-  );
+  // Edits the server.
+  $response = postmark_api_call( 'put', $url, json_encode( $server_edits ), $args[0], null );
 
-  var_dump($options);
+  postmark_handle_response( $response, $progress );
 
-  // Creates new server.
-  $response = wp_remote_request($url, $options);
+};
 
-  $progress->tick();
+# Registers a custom WP-CLI command for retrieving
+# all servers.
+#
+# Example usage:
+#
+# $ wp postmarkgetservers <account api token>
+#
+# Success: {
+#  "ID": 1,
+#  "Name": "Staging Testing",
+#  "ApiTokens": [
+#    "server token"
+#  ],
+#  "ServerLink": "https://postmarkapp.com/servers/1/overview",
+#  "Color": "red",
+#  "SmtpApiActivated": true,
+#  "RawEmailEnabled": false,
+#  "DeliveryHookUrl": "http://hooks.example.com/delivery",
+#  "InboundAddress": "yourhash@inbound.postmarkapp.com",
+#  "InboundHookUrl": "http://hooks.example.com/inbound",
+#  "BounceHookUrl": "http://hooks.example.com/bounce",
+#  "IncludeBounceContentInHook": true,
+#  "OpenHookUrl": "http://hooks.example.com/open",
+#  "PostFirstOpenOnly": false,
+#  "TrackOpens": false,
+#  "TrackLinks": "None",
+#  "ClickHookUrl": "http://hooks.example.com/click",
+#  "InboundDomain": "",
+#  "InboundHash": "yourhash",
+#  "InboundSpamThreshold": 0,
+#  "EnableSmtpApiErrorHooks": false
+# }
 
-  // If all goes well, display the edited server's details using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
+/**
+ * Retrieves a list of all servers.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * [--count=<count>]
+ * : Number of servers to retrieve.
+ *
+ * [--offset=<offset>]
+ * : Number of servers to skip.
+ *
+ * [--name=<name>]
+ * : Filter by a specific server name. Note that this is a string search, so
+ * MyServer will match MyServer, MyServer Production, and MyServer Test.
+ *
+ * @when after_wp_load
+ */
+$getservers = function($args, $assoc_args) {
 
-    $progress->finish();
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Getting servers.", $count );
 
-    $response['body'] = json_decode($response['body']);
+  $url = "https://api.postmarkapp.com/servers/";
 
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } elseif ( is_array( $response ) && false == (wp_remote_retrieve_response_code( $response ) == 200 )) {
-
-    $progress->finish();
-
-    WP_CLI::warning('Server edit failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
+  if( isset( $assoc_args['count'] )) {
+    $url .= "?count=" . $assoc_args['count'];
   } else {
-    $progress->finish();
-    WP_CLI::warning('Server edit failed.');
+    $url .= "?count=500";
   }
+
+  if( isset( $assoc_args['offset'] )) {
+    $url .= "&offset=" . $assoc_args['offset'];
+  } else {
+    $url .= "&offset=0";
+  }
+
+  if( isset( $assoc_args['name'] )) {
+    $url .= "&name=" . $assoc_args['name'];
+  }
+
+  // Retrieves server details.
+  $response = postmark_api_call('get', $url, null, $args[0], null);
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+# Registers a custom WP-CLI command for deleting
+# a server.
+#
+# Example usage:
+#
+# $ wp postmarkdeleteserver <account api token> <serverid>
+#
+# Success: {
+#  "ErrorCode": 0,
+#  "Message": "Server Production Server 2 removed."
+# }
+
+/**
+ * Deletes an existing server.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <serverid>
+ * : ID of server to delete.
+ *
+ * @when after_wp_load
+ */
+$deleteserver = function( $args, $assoc_args) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Deleting server ID {$args[1]}", $count );
+
+  $url = "https://api.postmarkapp.com/servers/{$args[1]}";
+
+  // Deletes the server.
+  $response = postmark_api_call( 'delete', $url, null, $args[0], null );
+
+  postmark_handle_response( $response, $progress );
+
 };
 
 /**********************************************
@@ -1348,23 +1190,10 @@ $editserver = function( $args, $assoc_args) {
  */
 $getdomains = function($args, $assoc_args) {
 
-  $url = "https://api.postmarkapp.com/domains";
-
   // ticker
-  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting delivery stats', $count );
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting domains.', $count );
 
-  $progress->tick();
-
-  if(isset($args[0])) {
-    $headers = array('X-Postmark-Account-Token' => $args[0]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    // TODO: add example of setting api token using wp cli
-    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
-  }
-
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains";
 
   // Checks for a count parameter and uses it if set.
   if ( isset($assoc_args['count']) && is_int($assoc_args['count']) && $assoc_args['count'] < 501 && $assoc_args['count'] > 0) {
@@ -1384,30 +1213,11 @@ $getdomains = function($args, $assoc_args) {
     $url .= "&offset=0";
   }
 
-  $progress->tick();
+  // Retrieves domains.
+  $response = postmark_api_call( 'get', $url, null, $args[0], null );
 
-  // Retrieves delivery stats
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  // If all goes well, display the retrieved domains using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-
-    $progress->finish();
-    WP_CLI::warning('Domains list retrieval failed.');
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::warning('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Domains list retrieval failed.');
-  }
 };
 
 # Registers a custom WP-CLI command for retrieving
@@ -1452,49 +1262,23 @@ $getdomains = function($args, $assoc_args) {
  */
 $getdomain = function($args) {
 
-  $url = "https://api.postmarkapp.com/domains/" . $args[1];
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting domain ID ' . $args[1], $count );
 
-  $progress->tick();
-
-  if(isset($args[0])) {
-    $headers = array('X-Postmark-Account-Token' => $args[0]);
-    $headers['Accept'] = 'application/json';
-    $progress->tick();
-  } else {
-    WP_CLI::error('You need to specify an account api token.');
-  }
-
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains/" . $args[1];
 
   // Retrieves domain information.
-  $response = wp_remote_get($url, array( 'headers' => $headers));
-  $progress->tick();
+  $response = postmark_api_call( 'get', $url, null, $args[0], null );
 
-  // If all goes well, display the retrieved domain using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode( $response['body'] );
-    WP_CLI::success( json_encode( $response['body'], JSON_PRETTY_PRINT ) );
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-    WP_CLI::warning( 'Domain retrieval failed.' );
-    $response['body'] = json_decode( $response['body'] );
-    WP_CLI::warning('Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ));
-  } else {
-    $progress->finish();
-    WP_CLI::warning( 'Domain retrieval failed.' );
-  }
+  postmark_handle_response( $response, $progress );
+
 };
 
-# Registers a custom WP-CLI command for retrieving
-# a domain's details.
+# Registers a custom WP-CLI command for creating a new domain.
 #
 # Example usage:
 #
-# $ wp postmarkgetdomain <account api token> <domainid>
+# $ wp postmarkcreatedomain <account api token> <name>
 #
 # Success: {
 #  "Name": "wildbit.com",
@@ -1537,79 +1321,28 @@ $getdomain = function($args) {
  */
 $createdomain = function( $args, $assoc_args ) {
 
-  $url = "https://api.postmarkapp.com/domains";
-
-  if ( !isset( $args[1] ) ) {
-    WP_CLI::error( 'You need to specify the new domain.' );
-  }
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Creating new domain ' . $args[1], $count );
 
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains";
 
-  if( isset( $args[0] ) ) {
+  // Checks for ReturnPathDomain.
+  if ( isset( $assoc_args['returnpathdomain'] ) ) {
 
-    // Sets the headers.
-    $headers = array('X-Postmark-Account-Token' => $args[0]);
-    $headers['Accept'] = 'application/json';
-    $headers['Content-Type'] = 'application/json';
-
-    // Checks for ReturnPathDomain.
-    if ( isset( $assoc_args['returnpathdomain'] ) ) {
-
-      $rpdomain = $assoc_args['returnpathdomain'];
-
-    } else {
-      // Creates domain without setting a custom return-path domain.
-      $rpdomain = "";
-    }
-
-    $progress->tick();
+    $rpdomain = $assoc_args['returnpathdomain'];
 
   } else {
-    WP_CLI::error( 'You need to specify an account api token for this command.' );
+    // Creates domain without setting a custom return-path domain.
+    $rpdomain = "";
   }
 
-  $progress->tick();
-
-  $options = array(
-    'method' => 'POST',
-    'blocking' => true,
-    'headers' => $headers,
-    'body' => json_encode( array( 'Name' => $args[1], 'ReturnPathDomain' => $rpdomain )),
-  );
+  $body = json_encode( array( 'Name' => $args[1], 'ReturnPathDomain' => $rpdomain ));
 
   // Calls Domains API to create new domain.
-  $response = wp_remote_post($url, $options);
+  $response = postmark_api_call( 'post', $url, $body, $args[0], null );
 
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  // If all goes well, display the created domain information using the CLI.
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-
-    $progress->finish();
-
-    $response['body'] = json_decode( $response['body'] );
-    WP_CLI::success( json_encode( $response['body'], JSON_PRETTY_PRINT ) );
-
-  } elseif ( is_array( $response ) && false == ( wp_remote_retrieve_response_code( $response ) == 200 ) ) {
-
-    $progress->finish();
-
-    WP_CLI::warning( 'Domain creation failed.' );
-
-    $response['body'] = json_decode( $response['body'] );
-
-    WP_CLI::warning('Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ));
-
-  } else {
-
-    $progress->finish();
-
-    WP_CLI::error( 'Domain creation failed.' );
-
-  }
 };
 
 # Registers a custom WP-CLI command for editing
@@ -1663,70 +1396,20 @@ $createdomain = function( $args, $assoc_args ) {
  */
 $editdomain = function ($args) {
 
-  if ( !isset( $args[0] ) ) {
-    WP_CLI::error( 'You need to specify an account API token for this command.' );
-  }
-
-  if ( !isset( $args[1] ) ) {
-    WP_CLI::error( 'You need to specify the domain to edit, using the domain\'s ID.' );
-  }
-
-  if ( !isset( $args[2] ) ) {
-    WP_CLI::error( 'You need to specify the new return path domain for this domain you are editing.' );
-
-  } else {
-    $url = "https://api.postmarkapp.com/domains/{$args[1]}";
-  }
+  $url = "https://api.postmarkapp.com/domains/{$args[1]}";
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Editing domain ID ' . $args[1], $count );
 
-  $progress->tick();
 
-  // Sets the headers.
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
-  $headers['Content-Type'] = 'application/json';
-
-  $progress->tick();
-
-  $options = array(
-    'method'     => 'PUT',
-
-    'body'       => json_encode(
+  $body = json_encode(
       array( "ReturnPathDomain" => "{$args[2]}" )
-    ),
-
-    'headers'    => $headers
   );
 
-  $response = wp_remote_request( $url, $options );
+  $response = postmark_api_call( 'put', $url, $body, $args[0], null );
 
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  // If all goes well, display the edited domain using the CLI.
-
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-
-    WP_CLI::warning('Domain edit failed.');
-
-    $response['body'] = json_decode($response['body']);
-
-    WP_CLI::error('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Domain edit failed.');
-  }
 };
 
 /**
@@ -1745,56 +1428,15 @@ $editdomain = function ($args) {
  */
 $deletedomain = function ($args) {
 
-  if ( !isset( $args[0] ) ) {
-    WP_CLI::error( 'You need to specify an account API token for this command.' );
-  }
-
-  $url = "https://api.postmarkapp.com/domains/{$args[1]}";
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Deleting domain ID ' . $args[1], $count );
 
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains/{$args[1]}";
 
-  // Sets the headers.
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
+  $response = postmark_api_call( 'delete', $url, null, $args[0], null );
 
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  $options = array(
-    'method'     => 'DELETE',
-
-    'headers'    => $headers
-  );
-
-  $response = wp_remote_request( $url, $options );
-
-  $progress->tick();
-
-  // If all goes well, display the edited domain using the CLI.
-
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-
-    WP_CLI::warning('Domain deletion failed.');
-
-    $response['body'] = json_decode($response['body']);
-
-    WP_CLI::error('Postmark API Response: ' . json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning('Domain deletion failed.');
-  }
 };
 
 # Registers a custom WP-CLI command for verifying DKIM for a domain.
@@ -1839,71 +1481,23 @@ $deletedomain = function ($args) {
  */
 $verifydkim = function ($args) {
 
-  if ( !isset( $args[0] ) ) {
-    WP_CLI::error( 'You need to specify an account API token for this command.' );
-  }
-
-  if ( !isset( $args[1] ) ) {
-    WP_CLI::error( 'You need to specify the domain to edit, using the domain\'s ID.' );
-  }
-
-  $url = "https://api.postmarkapp.com/domains/{$args[1]}/verifyDkim";
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Verifying DKIM for domain ID ' . $args[1], $count );
 
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains/{$args[1]}/verifyDkim";
 
-  // Sets the headers.
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
-  $headers['Content-Type'] = 'application/json';
+  $response = postmark_api_call( 'put', $url, ' ', $args[0], null );
 
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  $options = array(
-    'method'     => 'PUT',
-
-    // Body cannot be null for this call.
-    'body'       => ' ',
-
-    'headers'    => $headers
-  );
-
-  $response = wp_remote_request( $url, $options );
-
-  $progress->tick();
-
-  // If all goes well, display the edited domain using the CLI.
-
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-
-    WP_CLI::warning('DKIM verification attempt failed.');
-
-    $response['body'] = json_decode( $response['body'] );
-
-    WP_CLI::error( 'Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ) );
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning( 'DKIM verification attempt failed.' );
-  }
 };
 
-# Registers a custom WP-CLI command for verifying DKIM for a domain.
+# Registers a custom WP-CLI command for verifying a custom return-path for a
+# domain.
 #
 # Example usage:
 #
-# $ wp postmarkverifydkim <account api token> <domainid>
+# $ wp postmarkverifyreturnpath <account api token> <domainid>
 #
 # Success: {
 #  "Name": "wildbit.com",
@@ -1929,76 +1523,26 @@ $verifydkim = function ($args) {
 # }
 
 /**
- * Verifies DKIM for an existing domain.
+ * Verifies a custom return-path for an existing domain.
  *
  * <accountkey>
  * : Account API token.
  *
  * <domainid>
- * : ID of the domain to verify DKIM for.
+ * : ID of the domain to verify return-path for.
  *
  * @when after_wp_load
  */
 $verifyreturnpath = function ($args) {
 
-  if ( !isset( $args[0] ) ) {
-    WP_CLI::error( 'You need to specify an account API token for this command.' );
-  }
-
-  if ( !isset( $args[1] ) ) {
-    WP_CLI::error( 'You need to specify the domain to edit, using the domain\'s ID.' );
-  }
-
-  $url = "https://api.postmarkapp.com/domains/{$args[1]}/verifyReturnPath";
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Verifying Return-Path for domain ID ' . $args[1], $count );
 
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains/{$args[1]}/verifyReturnPath";
 
-  // Sets the headers.
-  $headers = array('X-Postmark-Account-Token' => $args[0]);
-  $headers['Accept'] = 'application/json';
-  $headers['Content-Type'] = 'application/json';
+  $response = postmark_api_call( 'put', $url, ' ', $args[0], null );
 
-  $progress->tick();
-
-  $options = array(
-    'method'     => 'PUT',
-
-    // Body cannot be null for this call.
-    'body'       => ' ',
-
-    'headers'    => $headers
-  );
-
-  $response = wp_remote_request( $url, $options );
-
-  $progress->tick();
-
-  // If all goes well, display the edited domain using the CLI.
-
-  // Success
-  if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
-    $progress->finish();
-    $response['body'] = json_decode($response['body']);
-    WP_CLI::success(json_encode($response['body'], JSON_PRETTY_PRINT));
-
-  // Error returned from API
-  } elseif (is_array( $response ) && !(wp_remote_retrieve_response_code( $response ) == 200)) {
-    $progress->finish();
-
-    WP_CLI::warning('Return-Path verification failed.');
-
-    $response['body'] = json_decode( $response['body'] );
-
-    WP_CLI::error( 'Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ) );
-
-  // Error in making API call.
-  } else {
-    $progress->finish();
-    WP_CLI::warning( 'Return-Path verification attempt failed.' );
-  }
+  postmark_handle_response( $response, $progress );
 };
 
 # Registers a custom WP-CLI command rotating
@@ -2048,43 +1592,467 @@ $verifyreturnpath = function ($args) {
  */
 $rotatedkim = function( $args ) {
 
-  $url = "https://api.postmarkapp.com/domains/{$args[1]}/rotatedkim";
-
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Rotating DKIM for Domain ID ' . $args[1], $count );
 
-  $progress->tick();
+  $url = "https://api.postmarkapp.com/domains/{$args[1]}/rotatedkim";
 
-  if( isset( $args[0] ) ) {
+  // Rotate DKIM key.
+  $response = postmark_api_call( 'post', $url, ' ', $args[0], null );
 
-    // Sets the headers.
-    $headers = array('X-Postmark-Account-Token' => $args[0]);
-    $headers['Accept'] = 'application/json';
-    $headers['Content-Type'] = 'application/json';
+  postmark_handle_response( $response, $progress );
 
-    $progress->tick();
+};
 
+/**********************************************
+************ Sender signatures API ************
+**********************************************/
+
+# Registers a custom WP-CLI command for retrieving
+# a list of sender signatures.
+#
+# Example usage:
+#
+# $ wp postmarkgetsignatures <account api token>
+#
+# Success: {
+#  "TotalCount": 2,
+#  "SenderSignatures": [
+#    {
+#      "Domain": "wildbit.com",
+#      "EmailAddress": "jp@wildbit.com",
+#      "ReplyToEmailAddress": "info@wildbit.com",
+#      "Name": "JP Toto",
+#      "Confirmed": true,
+#      "ID": 36735
+#    },
+#    {
+#      "Domain": "example.com",
+#      "EmailAddress": "jp@example.com",
+#      "ReplyToEmailAddress": "",
+#      "Name": "JP Toto",
+#      "Confirmed": true,
+#      "ID": 81605
+#    }
+#  ]
+# }
+
+/**
+ * Gets a list of sender signatures containing brief details associated with
+ * your account.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * [--count=<count>]
+ * : Number of signatures to return per request. Max 500.
+ *
+ * [--offset=<offset>]
+ * : Number of signatures to skip.
+ *
+ * @when after_wp_load
+ */
+$getsignatures = function($args, $assoc_args) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting sender signatures', $count );
+
+  $url = "https://api.postmarkapp.com/senders";
+
+  // Checks for a count parameter and uses it if set.
+  if ( isset($assoc_args['count']) && is_int($assoc_args['count']) && $assoc_args['count'] < 501 && $assoc_args['count'] > 0) {
+    $url .= "?count={$assoc_args['count']}";
+
+  // Uses 500 for default count if count not specified.
   } else {
-    WP_CLI::error( 'You need to specify an account api token for this command.' );
+    $url .= "?count=500";
   }
 
-  $progress->tick();
+  // Checks for an offset parameter and uses it if set.
+  if ( isset($assoc_args['offset']) && is_int($assoc_args['offset'])) {
+    $url .= "&offset={$assoc_args['offset']}";
 
-  $options = array(
-    'method' => 'POST',
-    'blocking' => true,
-    'headers' => $headers,
+  // Uses 0 for default offset if offset not specified.
+  } else {
+    $url .= "&offset=0";
+  }
 
-    // Body must be present
-    'body' => ' ',
-  );
+  // Retrieves signatures list
+  $response = postmark_api_call('get', $url, null, $args[0]);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for retrieving
+# a list of sender signatures.
+#
+# Example usage:
+#
+# $ wp postmarkgetsignatures <account api token>
+#
+# Success: {
+#  "Domain": "wildbit.com",
+#  "EmailAddress": "jp@wildbit.com",
+#  "ReplyToEmailAddress": "info@wildbit.com",
+#  "Name": "JP Toto",
+#  "Confirmed": true,
+#  "SPFVerified": true,
+#  "SPFHost": "wildbit.com",
+#  "SPFTextValue": "v=spf1 a mx include:spf.mtasv.net ~all",
+#  "DKIMVerified": false,
+#  "WeakDKIM": false,
+#  "DKIMHost": "jan2013.pm._domainkey.wildbit.com",
+#  "DKIMTextValue": "k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDJ...",
+#  "DKIMPendingHost": "20131031155228.pm._domainkey.wildbit.com",
+#  "DKIMPendingTextValue": "k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCFn...",
+#  "DKIMRevokedHost": "",
+#  "DKIMRevokedTextValue": "",
+#  "SafeToRemoveRevokedKeyFromDNS": false,
+#  "DKIMUpdateStatus": "Pending",
+#  "ReturnPathDomain": "pmbounces.wildbit.com",
+#  "ReturnPathDomainVerified": false,
+#  "ReturnPathDomainCNAMEValue": "pm.mtasv.net",
+#  "ID": 36735
+# }
+
+/**
+ * Gets all the details for a specific sender signature.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <signatureid>
+ * : Sender signature ID.
+ *
+ * @when after_wp_load
+ */
+$getsignature = function($args) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Getting sender signature ID {$args[1]}" , $count );
+
+  $url = "https://api.postmarkapp.com/senders/{$args[1]}";
+
+  // Retrieves signatures list
+  $response = postmark_api_call( 'get', $url, null, $args[0], null);
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+# Registers a custom WP-CLI command for creating
+# a sender signature.
+#
+# Example usage:
+#
+# $ wp postmarkcreatesignature <account api token> <fromemail> <name>
+#
+# Success: {
+#  "Domain": "wildbit.com",
+#  "EmailAddress": "jp@wildbit.com",
+#  "ReplyToEmailAddress": "info@wildbit.com",
+#  "Name": "JP Toto",
+#  "Confirmed": true,
+#  "SPFVerified": true,
+#  "SPFHost": "wildbit.com",
+#  "SPFTextValue": "v=spf1 a mx include:spf.mtasv.net ~all",
+#  "DKIMVerified": false,
+#  "WeakDKIM": false,
+#  "DKIMHost": "jan2013.pm._domainkey.wildbit.com",
+#  "DKIMTextValue": "k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDJ...",
+#  "DKIMPendingHost": "20131031155228.pm._domainkey.wildbit.com",
+#  "DKIMPendingTextValue": "k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCFn...",
+#  "DKIMRevokedHost": "",
+#  "DKIMRevokedTextValue": "",
+#  "SafeToRemoveRevokedKeyFromDNS": false,
+#  "DKIMUpdateStatus": "Pending",
+#  "ReturnPathDomain": "pmbounces.wildbit.com",
+#  "ReturnPathDomainVerified": false,
+#  "ReturnPathDomainCNAMEValue": "pm.mtasv.net",
+#  "ID": 36735
+# }
+
+/**
+ * Creates a sender signature.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <fromemail>
+ * : From email associated with sender signature.
+ *
+ * <name>
+ * : From name associated with sender signature.
+ *
+ * [--replytoemail=<replytoemail>]
+ * : Override for reply-to address.
+ *
+ * [--returnpathdomain=<returnpathdomain>]
+ * : A custom value for the Return-Path domain. It is an optional field, but it
+ * must be a subdomain of your From Email domain and must have a CNAME record
+ * that points to pm.mtasv.net.
+ *
+ * @when after_wp_load
+ */
+$createsignature = function( $args, $assoc_args ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Creating new signature ' . $args[1], $count );
+
+  $url = "https://api.postmarkapp.com/senders";
+
+  // Checks for ReplyToEmail.
+  if ( isset( $assoc_args['replytoemail'] ) ) {
+
+    $replytoemail = $assoc_args['replytoemail'];
+
+  } else {
+    // Creates domain without setting a replytoemail.
+    $replytoemail = "";
+  }
+
+  // Checks for ReturnPathDomain.
+  if ( isset( $assoc_args['returnpathdomain'] ) ) {
+
+    $rpdomain = $assoc_args['returnpathdomain'];
+
+  } else {
+    // Creates domain without setting a custom return-path domain.
+    $rpdomain = "";
+  }
+
+  $body = json_encode( array( 'FromEmail' => $args[1], 'Name' => $args[2] ) );
 
   // Calls Domains API to create new domain.
-  $response = wp_remote_post($url, $options);
+  $response = postmark_api_call( 'post', $url, $body, $args[0], null);
 
-  $progress->tick();
+  postmark_handle_response( $response, $progress );
 
-  // If all goes well, display the created domain information using the CLI.
+};
+
+# Registers a custom WP-CLI command for editing
+# a sender signature.
+#
+# Example usage:
+#
+# $ wp postmarkeditsignature <account api token> <signatureid> <name>
+#
+# Success: {
+#  "Domain": "wildbit.com",
+#  "EmailAddress": "jp@wildbit.com",
+#  "ReplyToEmailAddress": "info@wildbit.com",
+#  "Name": "JP Toto",
+#  "Confirmed": true,
+#  "SPFVerified": true,
+#  "SPFHost": "wildbit.com",
+#  "SPFTextValue": "v=spf1 a mx include:spf.mtasv.net ~all",
+#  "DKIMVerified": false,
+#  "WeakDKIM": false,
+#  "DKIMHost": "jan2013.pm._domainkey.wildbit.com",
+#  "DKIMTextValue": "k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDJ...",
+#  "DKIMPendingHost": "20131031155228.pm._domainkey.wildbit.com",
+#  "DKIMPendingTextValue": "k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCFn...",
+#  "DKIMRevokedHost": "",
+#  "DKIMRevokedTextValue": "",
+#  "SafeToRemoveRevokedKeyFromDNS": false,
+#  "DKIMUpdateStatus": "Pending",
+#  "ReturnPathDomain": "pmbounces.wildbit.com",
+#  "ReturnPathDomainVerified": false,
+#  "ReturnPathDomainCNAMEValue": "pm.mtasv.net",
+#  "ID": 36735
+# }
+
+/**
+ * Edits an existing sender signature.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <signatureid>
+ * : ID of the signature to edit.
+ *
+ * <name>
+ * : From name associated with sender signature.
+ *
+ * [--replytoemail=<ReplyToEmail>]
+ * : Override for reply-to address.
+ *
+ *  [--returnpathdomain=<returnpathdomain>]
+ * : A custom value for the Return-Path domain. It is an optional field, but it
+ * must be a subdomain of your From Email domain and must have a CNAME record
+ * that points to pm.mtasv.net. For more information about this field, please
+ * read our support page.
+ *
+ * Example:
+ * wp postmarkeditsignature "<yourtoken>" 123456 "John Doe"
+ *
+ * @when after_wp_load
+ */
+$editsignature = function ($args, $assoc_args) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Editing signature ID {$args[1]}", $count );
+
+  $url = "https://api.postmarkapp.com/senders/{$args[1]}";
+
+  $body = array(
+    "Name" => "{$args[2]}"
+  );
+
+  if ( isset( $assoc_args['replytoemail'] ) ) {
+    $body['ReplyToEmail'] = $assoc_args['replytoemail'];
+  }
+
+  if ( isset( $assoc_args['returnpathdomain'] ) ) {
+    $body['ReturnPathDomain'] = $assoc_args['returnpathdomain'];
+  }
+
+  $response = postmark_api_call( 'put', $url, json_encode($body), $args[0], null );
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+/**
+ * Deletes an existing sender signature.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <signatureid>
+ * : ID of the signature to delete.
+ *
+ * Example:
+ * wp postmarkdeletesignature "<yourtoken>" <signatureid>
+ *
+ * @when after_wp_load
+ */
+$deletesignature = function ($args) {
+
+  $url = "https://api.postmarkapp.com/senders/{$args[1]}";
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Deleting signature ID ' . $args[1], $count );
+
+  $response = postmark_api_call('delete', $url, null, $args[0]);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for resending
+# a confirmation email for a sender signature.
+#
+# Example usage:
+#
+# $ wp postmarkresendconfirmation <account api token> <signatureid>
+#
+# Success: {
+#  "ErrorCode": 0,
+#  "Message": "Confirmation email for Sender Signature john.doe@example.com was
+# re-sent."
+# }
+
+/**
+ * Resends a confirmation email for a sender signature.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <signatureid>
+ * : ID of sender signature.
+ *
+ * @when after_wp_load
+ */
+$resendconfirmation = function( $args ) {
+
+  $url = "https://api.postmarkapp.com/senders/{$args[1]}/resend";
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Resending confirmation email for sender signature ID {$args[1]}", $count );
+
+  $body = '';
+
+  // Calls Signatures API to resend confirmation email.
+  $response = postmark_api_call('post', $url, $body, $args[0]);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+function check_server_token_is_set( $postmark_settings ) {
+
+  if( !isset( $postmark_settings["api_key"] ) ) {
+
+    WP_CLI::error('You need to set your Server API Token in the Postmark plugin settings.');
+
+    return false;
+
+  } else {
+
+    return true;
+
+  }
+
+}
+
+function postmark_api_call( $method, $url, $body, $account_token, $postmark_settings = null ) {
+
+  if ( isset( $account_token ) ) {
+    $headers = array('X-Postmark-Account-Token' => $account_token);
+  } else {
+    $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
+  }
+
+  switch ($method) {
+
+    case "get":
+
+      $headers["Accept"] = 'application/json';
+
+      return wp_remote_get($url, array( 'headers' => $headers));
+
+    case "post":
+
+      $headers['Content-Type'] = 'application/json';
+
+      $options = array(
+        'method' => 'POST',
+        'blocking' => true,
+        'headers' => $headers,
+        'body' => $body
+      );
+
+      return wp_remote_post($url, $options);
+
+      case "put":
+        $headers['Accept'] = 'application/json';
+        $headers['Content-Type'] = 'application/json';
+
+        $options = array(
+          'method' => 'PUT',
+          'headers' => $headers,
+          'body' => $body
+        );
+
+        return wp_remote_request($url, $options);
+
+      case "delete":
+        $headers['Accept'] = 'application/json';
+
+        $options = array(
+          'method' => 'DELETE',
+          'headers' => $headers
+        );
+
+        return wp_remote_request($url, $options);
+  }
+
+}
+
+function postmark_handle_response($response, $progress) {
+
   if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
 
     $progress->finish();
@@ -2096,20 +2064,19 @@ $rotatedkim = function( $args ) {
 
     $progress->finish();
 
-    WP_CLI::warning( 'DKIM rotation failed.' );
+    WP_CLI::warning( 'Error occurred.' );
 
     $response['body'] = json_decode( $response['body'] );
 
-    WP_CLI::warning('Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ));
+    WP_CLI::error('Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ));
 
   } else {
 
     $progress->finish();
 
-    WP_CLI::error( 'DKIM rotation failed.' );
-
+    WP_CLI::error( 'Error occurred.' );
   }
-};
+}
 
 // Makes sure Postmark exists before adding wp cli command to
 // send a test email.
@@ -2130,6 +2097,8 @@ if( class_exists( 'Postmark_Mail' ) ) {
   WP_CLI::add_command( 'postmarkgetserver', $getserver );
   WP_CLI::add_command( 'postmarkcreateserver', $createserver );
   WP_CLI::add_command( 'postmarkeditserver', $editserver );
+  WP_CLI::add_command( 'postmarkgetservers', $getservers );
+  WP_CLI::add_command( 'postmarkdeleteserver', $deleteserver );
 
   // Domains API.
   WP_CLI::add_command( 'postmarkgetdomains', $getdomains );
@@ -2141,6 +2110,13 @@ if( class_exists( 'Postmark_Mail' ) ) {
   WP_CLI::add_command( 'postmarkverifyreturnpath', $verifyreturnpath );
   WP_CLI::add_command( 'postmarkrotatedkim', $rotatedkim );
 
+  // Signatures API
+  WP_CLI::add_command( 'postmarkgetsignatures', $getsignatures );
+  WP_CLI::add_command( 'postmarkgetsignature', $getsignature );
+  WP_CLI::add_command( 'postmarkcreatesignature', $createsignature );
+  WP_CLI::add_command( 'postmarkeditsignature', $editsignature );
+  WP_CLI::add_command( 'postmarkdeletesignature', $deletesignature );
+  WP_CLI::add_command( 'postmarkresendconfirmation', $resendconfirmation );
 
 } else {
   WP_CLI::error( 'Postmark_Mail class not found. Make sure plugin is activated before using Postmark WP CLI commands.' );
