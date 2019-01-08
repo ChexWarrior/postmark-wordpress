@@ -41,7 +41,7 @@ if ( !defined( 'WP_CLI' ) ) return;
  *
  * @when before_wp_load
  */
-$sendtestemail = function ($args, $assoc_args) {
+$sendTestEmail = function ($args, $assoc_args) {
   $headers = array();
 
   // Make sure To email address is present and valid.
@@ -155,7 +155,7 @@ $sendtestemail = function ($args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$getdeliverystats = function() use ($postmark_settings) {
+$getDeliveryStats = function() use ($postmark_settings) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting delivery stats', $count );
@@ -255,7 +255,7 @@ $getdeliverystats = function() use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$getbounces = function($assoc_args) use ($postmark_settings) {
+$getBounces = function($assoc_args) use ($postmark_settings) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
@@ -377,7 +377,7 @@ $getbounces = function($assoc_args) use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$getbounce = function ($args) use ($postmark_settings) {
+$getBounce = function ($args) use ($postmark_settings) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
@@ -410,7 +410,7 @@ $getbounce = function ($args) use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$getbouncedump = function ($args) use ($postmark_settings) {
+$getBounceDump = function ($args) use ($postmark_settings) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
@@ -442,7 +442,7 @@ $getbouncedump = function ($args) use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$activatebounce = function ($args) use ($postmark_settings) {
+$activateBounce = function ($args) use ($postmark_settings) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounces', $count );
@@ -475,7 +475,7 @@ $activatebounce = function ($args) use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$getbouncedtags = function ($args) use ($postmark_settings) {
+$getBouncedTags = function ($args) use ($postmark_settings) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounced tags', $count );
@@ -492,6 +492,578 @@ $getbouncedtags = function ($args) use ($postmark_settings) {
   postmark_handle_response( $response, $progress );
 
 };
+
+/**********************************************
+***************** Templates API *****************
+**********************************************/
+
+# Registers a custom WP-CLI command for sending an email with a template.
+#
+# Example usage:
+#
+# $ wp postmarksendwithtemplate <jsonfilename>
+#
+# Success:
+# {
+#   "To": "receiver@example.com",
+#   "SubmittedAt": "2014-02-17T07:25:01.4178645-05:00",
+#   "MessageID": "0a129aee-e1cd-480d-b08d-4f48548ff48d",
+#   "ErrorCode": 0,
+#   "Message": "OK"
+# }
+
+/**
+ * Sends an email using a template.
+ *
+ * <jsonfilename>
+ *
+ * @when after_wp_load
+ */
+$sendWithTemplate = function( $args ) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Sending email with a template using json from file {$args[0]}.", $count );
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  $url = "https://api.postmarkapp.com/email/withTemplate";
+
+  // Get file contents to use as JSON body.
+  $file = file_get_contents( $args[0], true );
+
+  var_dump($file);
+
+  // Sends email using the template.
+  $response = postmark_api_call('post', $url, $file, null, $postmark_settings);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for pushing all templates with changes to
+# another server. If the template already exists on the destination server, the # template will be updated. If the template does not exist on the destination
+# server, it will be created and assigned the alias of the template on the
+# source server.
+#
+# Example usage:
+#
+# $ wp postmarkpushtemplates <account api token> <sourceserverid> <destinationserverid> --performchanges
+#
+# Success: {
+#    "TotalCount": 1,
+#    "Templates": [
+#        {
+#            "Action": "Create",
+#            "TemplateId": 7270,
+#            "Alias": "comment-notification",
+#            "Name": "Comment notification"
+#        }
+#    ]
+# }
+
+/**
+ * Push all templates with changes to another server. If the template already
+ * exists on the destination server, the template will be updated. If the
+ * template does not exist on the destination server, it will be created and
+ * assigned the alias of the template on the source server.
+ *
+ * <accountkey>
+ * : Account API token.
+ *
+ * <sourceserverid>
+ * : Server ID of the source server containing the templates that will be
+ * pushed.
+ *
+ * <desintationserverid>
+ * : Server ID of the destination server receiving the pushed templates.
+ *
+ * [--performchanges]
+ * : Specifies whether to push templates to destination server or not. This
+ * parameter can be set to false to allow you to do a "dry-run" of the push
+ * operation so that you can see which templates would be created or updated
+ * from this operation. Must be included to execute template push when using
+ * the CLI.
+ *
+ * @when after_wp_load
+ */
+$pushTemplates = function( $args, $assoc_args) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Pushing templates fromo server ID {$args[1]} to server ID {$args[2]}.", $count );
+
+  $url = "https://api.postmarkapp.com/templates/push";
+
+  $body = array (
+  "SourceServerID" => $args[1] ,
+  "DestinationServerID" => $args[2]
+  );
+
+  if( isset( $assoc_args['performchanges'] ) ) {
+    $body['PerformChanges'] = "true";
+  } else {
+    $body['PerformChanges'] = "false";
+  }
+
+  // Pushes the templates.
+  $response = postmark_api_call( 'put', $url, json_encode( $body ), $args[0], null );
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+# Registers a custom WP-CLI command for retrieving a template.
+#
+# Example usage:
+#
+# $ wp postmarkgettemplate <templateidoralias>
+#
+# Success: {
+#  "Name": "Onboarding Email",
+#  "Subject": "Hello from {{company.name}}!",
+#  "TextBody": "Hello, {{name}}!",
+#  "HtmlBody": "<html><body>Hello, {{name}}!</body></html>",
+#  "Alias": "onboarding-v1"
+# }
+
+/**
+ * Retrieves a single template.
+ *
+ * <templateidoralias>
+ * : ID or alias of template.
+ *
+ * @when after_wp_load
+ */
+$getTemplate = function( $args ) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Getting template $args[0].", $count );
+
+  $url = "https://api.postmarkapp.com/templates/$args[0]";
+
+  // Retrieves template details.
+  $response = postmark_api_call( 'get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+# Registers a custom WP-CLI command for creating
+# a template.
+#
+# Example usage:
+#
+# $ wp postmarkcreatetemplate <name> <subject> --htmlbody=htmlfilename.html
+#
+# Success: {
+#  "TemplateId": 1234,
+#  "Name": "Onboarding Email",
+#  "Active": true,
+#  "Alias": "onboarding-v1"
+# }
+
+/**
+ * Creates a new template.
+ *
+ * <name>
+ * : Name of new template.
+ *
+ * <subject>
+ * : The content to use for the Subject when this template is used to send
+ * email. See our template language documentation for more information on the
+ * syntax for this field.
+ *
+ * [--htmlbody=<htmlbody>]
+ * : File location for the content to use for the HtmlBody when this template
+ * is used to send email. Required if TextBody is not specified. See our
+ * template language documentation for more information on the syntax for this
+ * field.
+ *
+ * [--textbody=<textbody>]
+ * : File location for the content to use for the TextBody when this template
+ * is used to send email. Required if HtmlBody is not specified. See our
+ * template language documentation for more information on the syntax for this
+ * field.
+ *
+ * [--alias=<alias>]
+ * : An optional string you can provide to identify this Template. Allowed
+ * characters are numbers, ASCII letters, and ‘.’, ‘-’, ‘_’ characters, and the
+ * string has to start with a letter.
+ *
+ * @when after_wp_load
+ */
+$createTemplate = function( $args, $assoc_args) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Creating new template  {$args[0]}", $count );
+
+  $url = "https://api.postmarkapp.com/templates";
+
+  $new_template = array(
+    "Name" => $args[0],
+    "Subject" => $args[1],
+  );
+
+  if( !isset( $assoc_args['htmlbody'] ) && !isset( $assoc_args['textbody'] ) ) {
+    WP_CLI::error('Must specify either an HTML or Text body when creating a template.');
+  }
+
+  if( isset( $assoc_args['htmlbody'] ) ) {
+    $new_template['HtmlBody'] = file_get_contents($assoc_args['htmlbody'], true);
+  }
+
+  if( isset( $assoc_args['textbody'] ) ) {
+    $new_template['TextBody'] = file_get_contents($assoc_args['textbody'], true);
+  }
+
+  if( isset( $assoc_args['alias'] ) ) {
+    $new_template['Alias'] = $assoc_args['alias'];
+  }
+
+  // Creates new template.
+  $response = postmark_api_call('post', $url, json_encode( $new_template ), null, $postmark_settings);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for editing
+# a template.
+#
+# Example usage:
+#
+# $ wp postmarkedittemplate <templateidoralias> <name> <subject> --htmlbody=htmlfilename.html
+#
+# Success: {
+#  "TemplateId": 1234,
+#  "Name": "Onboarding Email",
+#  "Active": true,
+#  "Alias": "onboarding-v1"
+# }
+
+/**
+ * Edits a template.
+ *
+ * <templateidoralias>
+ * : Template ID or alias
+ *
+ * <name>
+ * : Name of template.
+ *
+ * <subject>
+ * : The content to use for the Subject when this template is used to send
+ * email. See our template language documentation for more information on the
+ * syntax for this field.
+ *
+ * [--htmlbody=<htmlbody>]
+ * : File location for the content to use for the HtmlBody when this template
+ * is used to send email. Required if TextBody is not specified. See our
+ * template language documentation for more information on the syntax for this
+ * field.
+ *
+ * [--textbody=<textbody>]
+ * : File location for the content to use for the TextBody when this template
+ * is used to send email. Required if HtmlBody is not specified. See our
+ * template language documentation for more information on the syntax for this
+ * field.
+ *
+ * [--alias=<alias>]
+ * : An optional string you can provide to identify this Template. Allowed
+ * characters are numbers, ASCII letters, and ‘.’, ‘-’, ‘_’ characters, and the
+ * string has to start with a letter.
+ *
+ * @when after_wp_load
+ */
+$editTemplate = function( $args, $assoc_args) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Creating new template  {$args[0]}", $count );
+
+  $url = "https://api.postmarkapp.com/templates/{$args[0]}";
+
+  $template_edits = array(
+    "Name" => $args[1],
+    "Subject" => $args[2],
+  );
+
+  if( isset( $assoc_args['htmlbody'] ) ) {
+    $template_edits['HtmlBody'] = file_get_contents($assoc_args['htmlbody'], true);
+  }
+
+  if( isset( $assoc_args['textbody'] ) ) {
+    $template_edits['TextBody'] = file_get_contents($assoc_args['textbody'], true);
+  }
+
+  if( isset( $assoc_args['alias'] ) ) {
+    $template_edits['Alias'] = $assoc_args['alias'];
+  }
+
+  // Edits template.
+  $response = postmark_api_call('put', $url, json_encode( $template_edits ), null, $postmark_settings);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for retrieving all templates.
+#
+# Example usage:
+#
+# $ wp postmarkgettemplates
+#
+# Success: {
+#  "TotalCount": 2,
+#  "Templates": [
+#    {
+#      "Active": true,
+#      "TemplateId": 1234,
+#      "Name": "Account Activation Email",
+#      "Alias": null
+#    },
+#    {
+#      "Active": true,
+#      "TemplateId": 5678,
+#      "Name": "Password Recovery Email",
+#      "Alias": "password-recovery"
+#    }]
+# }
+
+/**
+ * Retrieves all templates.
+ *
+ * [--count=<count>]
+ * : The number of templates to return.
+ *
+ * [--offset=<offset>]
+* : The number of templates to "skip" before returning results.
+ *
+ * @when after_wp_load
+ */
+$getTemplates = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Getting templates.", $count );
+
+  $url = "https://api.postmarkapp.com/templates";
+
+  if( isset( $assoc_args['count'] ) && ( $assoc_args['count'] > 0) && ( $assoc_args['count'] < 500) ) {
+    $url .= "?count=" . $assoc_args['count'];
+  } else {
+    $url .= "?count=500";
+  }
+
+  if( isset( $assoc_args['offset'] ) && ( $assoc_args['offset'] > 0) && ( $assoc_args['offset'] < 500)) {
+    $url .= "&offset=" . $assoc_args['offset'];
+  } else {
+    $url .= "&offset=0";
+  }
+
+  // Retrieves templates.
+  $response = postmark_api_call( 'get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+# Registers a custom WP-CLI command for deleting a template.
+#
+# Example usage:
+#
+# $ wp postmarkdeletetemplate <templateidoralias>
+#
+# Success: {
+#  "ErrorCode": 0,
+#  "Message": "Template 1234 removed.",
+# }
+
+/**
+ * Deletes a template.
+ *
+ * <templateidoralias>
+ * : ID or alias of template.
+ *
+ * @when after_wp_load
+ */
+$deleteTemplate = function( $args ) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Deleting template $args[0].", $count );
+
+  $url = "https://api.postmarkapp.com/templates/$args[0]";
+
+  // Deletes template.
+  $response = postmark_api_call( 'delete', $url, null, null, $postmark_settings );
+
+  postmark_handle_response( $response, $progress );
+
+};
+
+# Registers a custom WP-CLI command for validating
+# a template.
+#
+# Example usage:
+#
+# $ wp postmarkvalidatetemplate <subject> --htmlbody=htmlfilename.html
+#
+# Success: {
+#  "AllContentIsValid": true,
+#  "HtmlBody": {
+#    "ContentIsValid": true,
+#    "ValidationErrors": [],
+#    "RenderedContent": "address_Value name_Value "
+#  },
+#  "TextBody": {
+#    "ContentIsValid": true,
+#    "ValidationErrors": [{
+#        "Message" : "The syntax for this template is invalid.",
+#        "Line" : 1,
+#        "CharacterPosition" : 1
+#    }],
+#    "RenderedContent": "phone_Value name_Value "
+#  },
+#  "Subject": {
+#    "ContentIsValid": true,
+#    "ValidationErrors": [],
+#    "RenderedContent": "name_Value subjectHeadline_Value"
+#  },
+#  "SuggestedTemplateModel": {
+#    "userName": "bobby joe",
+#    "company": {
+#      "address": "address_Value",
+#      "phone": "phone_Value",
+#      "name": "name_Value"
+#    },
+#    "person": [
+#      {
+#        "name": "name_Value"
+#      }
+#    ],
+#    "subjectHeadline": "subjectHeadline_Value"
+#  }
+# }
+
+/**
+ * Validates template.
+ *
+ * <subject>
+ * : The content to use for the Subject when this template is used to send
+ * email. See our template language documentation for more information on the
+ * syntax for this field.
+ *
+ * [--htmlbody=<htmlbody>]
+ * : File location for the content to use for the HtmlBody when this template
+ * is used to send email. Required if TextBody is not specified. See our
+ * template language documentation for more information on the syntax for this
+ * field.
+ *
+ * [--textbody=<textbody>]
+ * : File location for the content to use for the TextBody when this template
+ * is used to send email. Required if HtmlBody is not specified. See our
+ * template language documentation for more information on the syntax for this
+ * field.
+ *
+ * [--testrendermodel=<testrendermodel>]
+ * : The template model to be used when rendering test content. Use filepath
+ * for template model json if using this optional argument.
+ *
+ * [--inlinecssforhtmltestrender=<inlinecssforhtmltestrender>]
+ * : When HtmlBody is specified, the test render will have style blocks inlined
+ * as style attributes on matching html elements. You may disable the css
+ * inlining behavior by passing false for this parameter.
+ *
+ * @when after_wp_load
+ */
+$validateTemplate = function( $args, $assoc_args) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Validating template.", $count );
+
+  $url = "https://api.postmarkapp.com/templates/validate";
+
+  $template = array(
+    "Subject" => $args[0]
+  );
+
+  if( !isset( $assoc_args['htmlbody'] ) && !isset( $assoc_args['textbody'] ) ) {
+    WP_CLI::error('Must specify either an HTML or Text body when creating a template.');
+  }
+
+  if( isset( $assoc_args['htmlbody'] ) ) {
+    $template['HtmlBody'] = file_get_contents($assoc_args['htmlbody'], true);
+  }
+
+  if( isset( $assoc_args['textbody'] ) ) {
+    $template['TextBody'] = file_get_contents($assoc_args['textbody'], true);
+  }
+
+  if( isset( $assoc_args['testrendermodel'] ) ) {
+    $template['TestRenderModel'] = file_get_contents($assoc_args['testrendermodel'], true);
+  }
+
+  if ( isset( $assoc_args['inlinecssforhtmltestrender'] ) ) {
+    $template['InlineCssForHtmlTestRender'] = $assoc_args['inlinecssforhtmltestrender'];
+  }
+
+  // Creates new template.
+  $response = postmark_api_call('post', $url, json_encode( $template ), null, $postmark_settings);
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for sending a batch of emails that
+# use templates.
+#
+# Example usage:
+#
+# $ wp postmarksendtemplatebatch <jsonfilename>
+#
+# Success: [
+#  {
+#    "ErrorCode": 0,
+#    "Message": "OK",
+#    "MessageID": "b7bc2f4a-e38e-4336-af7d-e6c392c2f817",
+#    "SubmittedAt": "2010-11-26T12:01:05.1794748-05:00",
+#    "To": "receiver1@example.com"
+#  },
+#  {
+#    "ErrorCode": 0,
+#    "Message": "OK",
+#    "MessageID": "e2ecbbfc-fe12-463d-b933-9fe22915106d",
+#    "SubmittedAt": "2010-11-26T12:01:05.1794748-05:00",
+#    "To": "receiver2@example.com"
+#  }
+# ]
+
+/**
+ * Sends a batch of emails using templates.
+ *
+ * <jsonfilename>
+ *
+ * @when after_wp_load
+ */
+$sendBatchWithTemplate = function( $args ) use ( $postmark_settings ) {
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( "Sending templated batch of emails using json from file {$args[0]}.", $count );
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  $url = "https://api.postmarkapp.com/email/batchWithTemplates";
+
+  // Get file contents to use as JSON body.
+  $file = file_get_contents( $args[0], true );
+
+  // Sends batch of emails using the template(s).
+  $response = postmark_api_call('post', $url, $file, null, $postmark_settings);
+
+  postmark_handle_response($response, $progress);
+
+};
+
 
 /**********************************************
 ***************** Servers API *****************
@@ -541,7 +1113,7 @@ $getbouncedtags = function ($args) use ($postmark_settings) {
  *
  * @when after_wp_load
  */
-$getserver = function( $args, $assoc_args ) {
+$getServer = function( $args, $assoc_args ) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Getting Server ID {$args[1]}", $count );
@@ -652,7 +1224,7 @@ $getserver = function( $args, $assoc_args ) {
  *
  * @when after_wp_load
  */
-$createserver = function( $args, $assoc_args) {
+$createServer = function( $args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Creating new server -  {$args[1]}", $count );
@@ -883,7 +1455,7 @@ $createserver = function( $args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$editserver = function( $args, $assoc_args) {
+$editServer = function( $args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Editing server ID {$args[1]}", $count );
@@ -1074,7 +1646,7 @@ $editserver = function( $args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$getservers = function($args, $assoc_args) {
+$getServers = function($args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Getting servers.", $count );
@@ -1127,7 +1699,7 @@ $getservers = function($args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$deleteserver = function( $args, $assoc_args) {
+$deleteServer = function( $args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Deleting server ID {$args[1]}", $count );
@@ -1188,7 +1760,7 @@ $deleteserver = function( $args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$getdomains = function($args, $assoc_args) {
+$getDomains = function($args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting domains.', $count );
@@ -1260,7 +1832,7 @@ $getdomains = function($args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$getdomain = function($args) {
+$getDomain = function($args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting domain ID ' . $args[1], $count );
@@ -1319,7 +1891,7 @@ $getdomain = function($args) {
  *
  * @when after_wp_load
  */
-$createdomain = function( $args, $assoc_args ) {
+$createDomain = function( $args, $assoc_args ) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Creating new domain ' . $args[1], $count );
@@ -1394,7 +1966,7 @@ $createdomain = function( $args, $assoc_args ) {
  *
  * @when after_wp_load
  */
-$editdomain = function ($args) {
+$editDomain = function ($args) {
 
   $url = "https://api.postmarkapp.com/domains/{$args[1]}";
 
@@ -1426,7 +1998,7 @@ $editdomain = function ($args) {
  *
  * @when after_wp_load
  */
-$deletedomain = function ($args) {
+$deleteDomain = function ($args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Deleting domain ID ' . $args[1], $count );
@@ -1479,7 +2051,7 @@ $deletedomain = function ($args) {
  *
  * @when after_wp_load
  */
-$verifydkim = function ($args) {
+$verifyDkim = function ($args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Verifying DKIM for domain ID ' . $args[1], $count );
@@ -1533,7 +2105,7 @@ $verifydkim = function ($args) {
  *
  * @when after_wp_load
  */
-$verifyreturnpath = function ($args) {
+$verifyReturnPath = function ($args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Verifying Return-Path for domain ID ' . $args[1], $count );
@@ -1590,7 +2162,7 @@ $verifyreturnpath = function ($args) {
  *
  * @when after_wp_load
  */
-$rotatedkim = function( $args ) {
+$rotateDkim = function( $args ) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Rotating DKIM for Domain ID ' . $args[1], $count );
@@ -1652,7 +2224,7 @@ $rotatedkim = function( $args ) {
  *
  * @when after_wp_load
  */
-$getsignatures = function($args, $assoc_args) {
+$getSignatures = function($args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Getting sender signatures', $count );
@@ -1727,7 +2299,7 @@ $getsignatures = function($args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$getsignature = function($args) {
+$getSignature = function($args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Getting sender signature ID {$args[1]}" , $count );
@@ -1795,7 +2367,7 @@ $getsignature = function($args) {
  *
  * @when after_wp_load
  */
-$createsignature = function( $args, $assoc_args ) {
+$createSignature = function( $args, $assoc_args ) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( 'Creating new signature ' . $args[1], $count );
@@ -1889,7 +2461,7 @@ $createsignature = function( $args, $assoc_args ) {
  *
  * @when after_wp_load
  */
-$editsignature = function ($args, $assoc_args) {
+$editSignature = function ($args, $assoc_args) {
 
   // ticker
   $progress = \WP_CLI\Utils\make_progress_bar( "Editing signature ID {$args[1]}", $count );
@@ -1928,7 +2500,7 @@ $editsignature = function ($args, $assoc_args) {
  *
  * @when after_wp_load
  */
-$deletesignature = function ($args) {
+$deleteSignature = function ($args) {
 
   $url = "https://api.postmarkapp.com/senders/{$args[1]}";
 
@@ -1965,7 +2537,7 @@ $deletesignature = function ($args) {
  *
  * @when after_wp_load
  */
-$resendconfirmation = function( $args ) {
+$resendConfirmation = function( $args ) {
 
   $url = "https://api.postmarkapp.com/senders/{$args[1]}/resend";
 
@@ -1981,6 +2553,1047 @@ $resendconfirmation = function( $args ) {
 
 };
 
+/**********************************************
+**************** Statistics API ***************
+**********************************************/
+
+# Registers a custom WP-CLI command for retrieving
+# a brief overview of statistics for all of your outbound email.
+#
+# Example usage:
+#
+# $ wp postmarkgetoutboundoverview
+#
+# Success: {
+#  "Sent": 615,
+#  "Bounced": 64,
+#  "SMTPApiErrors": 25,
+#  "BounceRate": 10.406,
+#  "SpamComplaints": 10,
+#  "SpamComplaintsRate": 1.626,
+#  "Opens": 166,
+#  "UniqueOpens": 26,
+#  "Tracked": 111,
+#  "WithLinkTracking": 90,
+#  "WithOpenTracking": 51,
+#  "TotalTrackedLinksSent": 60,
+#  "UniqueLinksClicked": 30,
+#  "TotalClicks": 72,
+#  "WithClientRecorded": 14,
+#  "WithPlatformRecorded": 10
+# }
+
+/**
+ * Gets a brief overview of statistics for all of your outbound email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getOutboundOverview = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting outbound overview.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves outbound overview.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for retrieving
+# sent counts.
+#
+# Example usage:
+#
+# $ wp postmarkgetsentcounts
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Sent": 140
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Sent": 160
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Sent": 50
+#    },
+#    {
+#      "Date": "2014-01-05",
+#      "Sent": 115
+#    }
+#  ],
+#  "Sent": 615
+# }
+
+/**
+ * Gets a total count of emails you’ve sent out.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getSentCounts = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting sent counts.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/sends";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves sent counts.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting total counts
+# of emails you’ve sent out that have been returned as bounced.
+#
+# Example usage:
+#
+# $ wp postmarkgetbouncecounts
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "HardBounce": 12,
+#      "SoftBounce": 36
+#    },
+#    {
+#      "Date": "2014-01-03",
+#      "Transient": 7
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Transient": 4
+#    },
+#    {
+#      "Date": "2014-01-05",
+#      "SMTPApiError": 25,
+#      "Transient": 5
+#    }
+#  ],
+#  "HardBounce": 12,
+#  "SMTPApiError": 25,
+#  "SoftBounce": 36,
+#  "Transient": 16
+# }
+
+/**
+ * Gets total counts of emails you’ve sent out that have been
+ * returned as bounced.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getBounceCounts = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting bounce counts.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/bounces";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves bounce counts.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting total counts
+# of emails you’ve sent out that have been returned as bounced.
+#
+# Example usage:
+#
+# $ wp postmarkgetspamcomplaintscounts
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "SpamComplaint": 2
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "SpamComplaint": 3
+#    },
+#    {
+#      "Date": "2014-01-05",
+#      "SpamComplaint": 5
+#    }
+#  ],
+#  "SpamComplaint": 10
+# }
+
+/**
+ * Gets a total count of recipients who have marked your email
+ * as spam.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getSpamComplaintsCounts = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting spam complaints counts.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/spam";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves spam complaint counts.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting a total count
+# of emails you’ve sent with open tracking or link tracking
+# enabled.
+#
+# Example usage:
+#
+# $ wp postmarkgettrackedemailcounts
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Tracked": 24
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Tracked": 26
+#    },
+#    {
+#      "Date": "2014-01-03",
+#      "Tracked": 15
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Tracked": 15
+#    },
+#    {
+#      "Date": "2014-01-05",
+#      "Tracked": 31
+#    }
+#  ],
+#  "Tracked": 111
+# }
+
+/**
+ * Gets a total count of emails you’ve sent with open tracking
+ * or link tracking enabled.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getTrackedEmailCounts = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting spam complaints counts.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/tracked";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves tracked email counts.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting total counts
+# of recipients who opened your emails. This is only recorded
+# when open tracking is enabled for that email.
+#
+# Example usage:
+#
+# $ wp postmarkgetemailopencounts
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Opens": 44,
+#      "Unique": 4
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Opens": 46,
+#      "Unique": 6
+#    },
+#    {
+#      "Date": "2014-01-03",
+#      "Opens": 25,
+#      "Unique": 5
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Opens": 25,
+#      "Unique": 5
+#    },
+#    {
+#      "Date": "2014-01-05",
+#      "Opens": 26,
+#      "Unique": 6
+#    }
+#  ],
+#  "Opens": 166,
+#  "Unique": 26
+# }
+
+/**
+ * Gets total counts of recipients who opened your emails.
+ * This is only recorded when open tracking is enabled for
+ * that email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getEmailOpenCounts = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting email open counts.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/opens";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves open counts.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for geting an overview of
+# the platforms used to open your emails. This is only
+# recorded when open tracking is enabled for that email.
+#
+# Example usage:
+#
+# $ wp postmarkgetemailplatformusage
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Desktop": 1,
+#      "WebMail": 1
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Mobile": 2,
+#      "WebMail": 1
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Desktop": 3,
+#      "Unknown": 2
+#    }
+#  ],
+#  "Desktop": 4,
+#  "Mobile": 2,
+#  "Unknown": 2,
+#  "WebMail": 2
+# }
+
+/**
+* Gets an overview of the platforms used to open your emails.
+* This is only recorded when open tracking is enabled for that
+* email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getEmailPlatformUsage = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting email platform usage.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/opens/platforms";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves email platform usage.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting an overview of
+# the email clients used to open your emails. This is only
+# recorded when open tracking is enabled for that email.
+#
+# Example usage:
+#
+# $ wp postmarkgetemailclientusage
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Apple Mail": 1,
+#      "Outlook 2010": 1
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Apple Mail": 1,
+#      "Outlook 2010": 2
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Apple Mail": 4,
+#      "Outlook 2010": 5
+#    }
+#  ],
+#  "Apple Mail": 6,
+#  "Outlook 2010": 8
+# }
+
+/**
+ * Gets an overview of the email clients used to open your
+ * emails. This is only recorded when open tracking is enabled
+ * for that email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getEmailClientUsage = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting email client usage.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/opens/emailclients";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves email client usage.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting total counts of unique links
+# that were clicked.
+#
+# Example usage:
+#
+# $ wp postmarkgetclickcounts
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Clicks": 44,
+#      "Unique": 4
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Clicks": 46,
+#      "Unique": 6
+#    },
+#    {
+#      "Date": "2014-01-03",
+#      "Clicks": 25,
+#      "Unique": 5
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Clicks": 25,
+#      "Unique": 5
+#    },
+#    {
+#      "Date": "2014-01-05",
+#      "Clicks": 26,
+#      "Unique": 6
+#    }
+#  ],
+#  "Clicks": 166,
+#  "Unique": 26
+# }
+
+/**
+ * Gets total counts of unique links that were clicked.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getClickCounts = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting click counts.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/clicks";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves click counts.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting an overview of the browsers
+# used to open links in your emails. This is only recorded when Link Tracking
+# is enabled for that email.
+#
+# Example usage:
+#
+# $ wp postmarkgetbrowserusage
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Google Chrome": 1,
+#      "Safari mobile": 1
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Google Chrome": 1,
+#      "Safari mobile": 2
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Google Chrome": 4,
+#      "Safari mobile": 5
+#    }
+#  ],
+#  "Google Chrome": 6,
+#  "Safari mobile": 8
+# }
+
+/**
+ * Gets an overview of the browsers used to open links in your emails. This is
+ * only recorded when Link Tracking is enabled for that email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getBrowserUsage = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting click browser usage.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/clicks/browserfamilies";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves click browser usage.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting an overview of the browser
+# platforms used to open your emails. This is only recorded when Link Tracking
+# is enabled for that email.
+#
+# Example usage:
+#
+# $ wp postmarkgetbrowserplatformusage
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "Desktop": 1
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Mobile": 2
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "Desktop": 3,
+#      "Unknown": 2
+#    }
+#  ],
+#  "Desktop": 4,
+#  "Mobile": 2,
+#  "Unknown": 2
+# }
+
+/**
+ * Gets an overview of the browser platforms used to open your emails. This is
+ * only recorded when Link Tracking is enabled for that email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getBrowserPlatformUsage = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting click browser platform usage.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/clicks/platforms";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves click browser platform usage.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+# Registers a custom WP-CLI command for getting an overview of which part of
+# the email links were clicked from (HTML or Text). This is only recorded when
+# Link Tracking is enabled for that email.
+#
+# Example usage:
+#
+# $ wp postmarkgetclicklocation
+#
+# Success: {
+#  "Days": [
+#    {
+#      "Date": "2014-01-01",
+#      "HTML": 1
+#    },
+#    {
+#      "Date": "2014-01-02",
+#      "Text": 2
+#    },
+#    {
+#      "Date": "2014-01-04",
+#      "HTML": 3,
+#      "Text": 2
+#    }
+#  ],
+#  "HTML": 4,
+#  "Text": 4
+# }
+
+/**
+ * Gets an overview of which part of the email links were clicked from (HTML or
+ * Text). This is only recorded when Link Tracking is enabled for that email.
+ *
+ * [--tag=<tag>]
+ * : Filter by tag.
+ *
+ * [--fromdate=<fromdate>]
+ * : Filter stats starting from the date specified (inclusive). e.g. 2014-01-01.
+ *
+ * [--todate=<todate>]
+ * : Filter stats up to the date specified (inclusive). e.g. 2014-02-01.
+ *
+ * @when after_wp_load
+ */
+$getClickLocation = function( $args, $assoc_args ) use ( $postmark_settings ) {
+
+  if ( !check_server_token_is_set( $postmark_settings ) ) {
+    return;
+  }
+
+  // ticker
+  $progress = \WP_CLI\Utils\make_progress_bar( 'Getting click location stats.', $count );
+
+  $url = "https://api.postmarkapp.com/stats/outbound/clicks/location";
+
+  $queryparams = array();
+
+  // Checks for a tag parameter and uses it if set.
+  if ( isset( $assoc_args['tag'] ) ) {
+    $queryparams['tag'] = $assoc_args['tag'];
+  }
+
+  // Checks for a fromdate parameter and uses it if set.
+  if ( isset( $assoc_args['fromdate'] ) ) {
+    $queryparams['fromdate'] = $assoc_args['fromdate'];
+  }
+
+  // Checks for a todate parameter and uses it if set.
+  if ( isset( $assoc_args['todate'] ) ) {
+    $queryparams['todate'] = $assoc_args['todate'];
+  }
+
+  // Builds the URL with query params.
+  if ( isset ($queryparams) ) {
+    $url .= "?" . http_build_query($queryparams);
+  }
+
+  // Retrieves click browser location stats.
+  $response = postmark_api_call('get', $url, null, null, $postmark_settings );
+
+  postmark_handle_response($response, $progress);
+
+};
+
+// Checks if server token is set in Postmark plugin settings.
 function check_server_token_is_set( $postmark_settings ) {
 
   if( !isset( $postmark_settings["api_key"] ) ) {
@@ -1997,6 +3610,7 @@ function check_server_token_is_set( $postmark_settings ) {
 
 }
 
+// Helper function for making API calls to Postmark APIs.
 function postmark_api_call( $method, $url, $body, $account_token, $postmark_settings = null ) {
 
   if ( isset( $account_token ) ) {
@@ -2005,20 +3619,23 @@ function postmark_api_call( $method, $url, $body, $account_token, $postmark_sett
     $headers = array('X-Postmark-Server-Token' => $postmark_settings["api_key"]);
   }
 
-  switch ($method) {
+  switch ( $method ) {
 
+    // GET
     case "get":
 
       $headers["Accept"] = 'application/json';
 
       return wp_remote_get($url, array( 'headers' => $headers));
 
+    //POST
     case "post":
 
       $headers['Content-Type'] = 'application/json';
 
       $options = array(
         'method' => 'POST',
+        // Wait for API response
         'blocking' => true,
         'headers' => $headers,
         'body' => $body
@@ -2026,6 +3643,7 @@ function postmark_api_call( $method, $url, $body, $account_token, $postmark_sett
 
       return wp_remote_post($url, $options);
 
+      // PUT
       case "put":
         $headers['Accept'] = 'application/json';
         $headers['Content-Type'] = 'application/json';
@@ -2038,6 +3656,7 @@ function postmark_api_call( $method, $url, $body, $account_token, $postmark_sett
 
         return wp_remote_request($url, $options);
 
+      // DELETE
       case "delete":
         $headers['Accept'] = 'application/json';
 
@@ -2046,13 +3665,16 @@ function postmark_api_call( $method, $url, $body, $account_token, $postmark_sett
           'headers' => $headers
         );
 
+        // Returns resulting response from Postmark API.
         return wp_remote_request($url, $options);
   }
 
 }
 
+// Helper function for displaying Postmark API response in CLI.
 function postmark_handle_response($response, $progress) {
 
+  // Successful call (200).
   if ( is_array( $response ) && wp_remote_retrieve_response_code( $response ) == 200) {
 
     $progress->finish();
@@ -2060,63 +3682,95 @@ function postmark_handle_response($response, $progress) {
     $response['body'] = json_decode( $response['body'] );
     WP_CLI::success( json_encode( $response['body'], JSON_PRETTY_PRINT ) );
 
+  // Non-200 response from Postmark API.
   } elseif ( is_array( $response ) && false == ( wp_remote_retrieve_response_code( $response ) == 200 ) ) {
 
     $progress->finish();
 
     WP_CLI::warning( 'Error occurred.' );
 
-    $response['body'] = json_decode( $response['body'] );
+    $responseBody = json_decode( $response['body'] );
 
-    WP_CLI::error('Postmark API Response: ' . json_encode( $response['body'], JSON_PRETTY_PRINT ));
+    $errorMessage = [];
+
+    array_push( $errorMessage, "Postmark API Error Code: " . $responseBody->ErrorCode );
+
+    array_push( $errorMessage, "Postmark Error Message: " . $responseBody->Message );
+
+    WP_CLI::error_multi_line( $errorMessage );
 
   } else {
 
     $progress->finish();
 
-    WP_CLI::error( 'Error occurred.' );
+    WP_CLI::error( 'Error occurred with command. API call unsuccessful.' );
   }
 }
 
-// Makes sure Postmark exists before adding wp cli command to
-// send a test email.
+// Makes sure Postmark plugin is activated before adding Postmark wp cli
+// commands.
 if( class_exists( 'Postmark_Mail' ) ) {
-  // Adds Postmark API commands to WP CLI.
-  // Send a test email.
-  WP_CLI::add_command( 'postmarksendtestemail', $sendtestemail);
 
-  //Bounces API.
-  WP_CLI::add_command( 'postmarkgetdeliverystats', $getdeliverystats );
-  WP_CLI::add_command( 'postmarkgetbounces', $getbounces );
-  WP_CLI::add_command( 'postmarkgetbounce', $getbounce );
-  WP_CLI::add_command( 'postmarkgetbouncedump', $getbouncedump );
-  WP_CLI::add_command( 'postmarkactivatebounce', $activatebounce );
-  WP_CLI::add_command( 'postmarkgetbouncedtags', $getbouncedtags );
+  // Send a test email.
+  WP_CLI::add_command( 'postmarksendTestEmail', $sendTestEmail);
+
+  //Bounce API.
+  WP_CLI::add_command( 'postmarkgetdeliverystats', $getDeliveryStats );
+  WP_CLI::add_command( 'postmarkgetbounces', $getBounces );
+  WP_CLI::add_command( 'postmarkgetbounce', $getBounce );
+  WP_CLI::add_command( 'postmarkgetbouncedump', $getBounceDump );
+  WP_CLI::add_command( 'postmarkactivatebounce', $activateBounce );
+  WP_CLI::add_command( 'postmarkgetbouncedtags', $getBouncedTags );
+
+  // Templates API
+  WP_CLI::add_command( 'postmarksendwithtemplate', $sendWithTemplate );
+  WP_CLI::add_command( 'postmarkpushtemplates', $pushTemplates );
+  WP_CLI::add_command( 'postmarkgettemplate', $getTemplate );
+  WP_CLI::add_command( 'postmarkcreatetemplate', $createTemplate );
+  WP_CLI::add_command( 'postmarkedittemplate', $editTemplate );
+  WP_CLI::add_command( 'postmarkgettemplates', $getTemplates );
+  WP_CLI::add_command( 'postmarkdeletetemplate', $deleteTemplate );
+  WP_CLI::add_command( 'postmarkvalidatetemplate', $validateTemplate );
+  WP_CLI::add_command( 'postmarksendtemplatebatch', $sendBatchWithTemplate );
 
   // Servers API
-  WP_CLI::add_command( 'postmarkgetserver', $getserver );
-  WP_CLI::add_command( 'postmarkcreateserver', $createserver );
-  WP_CLI::add_command( 'postmarkeditserver', $editserver );
-  WP_CLI::add_command( 'postmarkgetservers', $getservers );
-  WP_CLI::add_command( 'postmarkdeleteserver', $deleteserver );
+  WP_CLI::add_command( 'postmarkgetserver', $getServer );
+  WP_CLI::add_command( 'postmarkcreateserver', $createServer );
+  WP_CLI::add_command( 'postmarkeditserver', $editServer );
+  WP_CLI::add_command( 'postmarkgetservers', $getServers );
+  WP_CLI::add_command( 'postmarkdeleteserver', $deleteServer );
 
   // Domains API.
-  WP_CLI::add_command( 'postmarkgetdomains', $getdomains );
-  WP_CLI::add_command( 'postmarkgetdomain', $getdomain );
-  WP_CLI::add_command( 'postmarkcreatedomain', $createdomain );
-  WP_CLI::add_command( 'postmarkeditdomain', $editdomain );
-  WP_CLI::add_command( 'postmarkdeletedomain', $deletedomain );
-  WP_CLI::add_command( 'postmarkverifydkim', $verifydkim );
-  WP_CLI::add_command( 'postmarkverifyreturnpath', $verifyreturnpath );
-  WP_CLI::add_command( 'postmarkrotatedkim', $rotatedkim );
+  WP_CLI::add_command( 'postmarkgetdomains', $getDomains );
+  WP_CLI::add_command( 'postmarkgetdomain', $getDomain );
+  WP_CLI::add_command( 'postmarkcreatedomain', $createDomain );
+  WP_CLI::add_command( 'postmarkeditdomain', $editDomain );
+  WP_CLI::add_command( 'postmarkdeletedomain', $deleteDomain );
+  WP_CLI::add_command( 'postmarkverifydkim', $verifyDkim );
+  WP_CLI::add_command( 'postmarkverifyreturnpath', $verifyReturnPath );
+  WP_CLI::add_command( 'postmarkrotatedkim', $rotateDkim );
 
   // Signatures API
-  WP_CLI::add_command( 'postmarkgetsignatures', $getsignatures );
-  WP_CLI::add_command( 'postmarkgetsignature', $getsignature );
-  WP_CLI::add_command( 'postmarkcreatesignature', $createsignature );
-  WP_CLI::add_command( 'postmarkeditsignature', $editsignature );
-  WP_CLI::add_command( 'postmarkdeletesignature', $deletesignature );
-  WP_CLI::add_command( 'postmarkresendconfirmation', $resendconfirmation );
+  WP_CLI::add_command( 'postmarkgetsignatures', $getSignatures );
+  WP_CLI::add_command( 'postmarkgetsignature', $getSignature );
+  WP_CLI::add_command( 'postmarkcreatesignature', $createSignature );
+  WP_CLI::add_command( 'postmarkeditsignature', $editSignature );
+  WP_CLI::add_command( 'postmarkdeletesignature', $deleteSignature );
+  WP_CLI::add_command( 'postmarkresendconfirmation', $resendConfirmation );
+
+  // Stats API
+  WP_CLI::add_command( 'postmarkgetoutboundoverview', $getOutboundOverview );
+  WP_CLI::add_command( 'postmarkgetsentcounts', $getSentCounts );
+  WP_CLI::add_command( 'postmarkgetbouncecounts', $getBounceCounts );
+  WP_CLI::add_command( 'postmarkgetspamcomplaintscounts', $getSpamComplaintsCounts );
+  WP_CLI::add_command( 'postmarkgettrackedemailcounts', $getTrackedEmailCounts );
+  WP_CLI::add_command( 'postmarkgetemailopencounts', $getEmailOpenCounts );
+  WP_CLI::add_command( 'postmarkgetemailplatformusage', $getEmailPlatformUsage );
+  WP_CLI::add_command( 'postmarkgetemailclientusage', $getEmailClientUsage );
+  WP_CLI::add_command( 'postmarkgetclickcounts', $getClickCounts );
+  WP_CLI::add_command( 'postmarkgetbrowserusage', $getBrowserUsage );
+  WP_CLI::add_command( 'postmarkgetbrowserplatformusage', $getBrowserPlatformUsage );
+  WP_CLI::add_command( 'postmarkgetclicklocation', $getClickLocation );
 
 } else {
   WP_CLI::error( 'Postmark_Mail class not found. Make sure plugin is activated before using Postmark WP CLI commands.' );
